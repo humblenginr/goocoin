@@ -181,7 +181,7 @@ func InitConfig() {
 	CFG.Stat.FeesBlks = 4 * 6 /*last 4 hours*/
 	CFG.Stat.BSizeBlks = 1008 /*one week*/
 
-	CFG.AllBalances.MinValue = 1e5 // 0.001 BTC
+	CFG.AllBalances.MinValue = 0 // 0.00001 BTC
 	CFG.AllBalances.UseMapCnt = 5000
 	CFG.AllBalances.AutoLoad = true
 
