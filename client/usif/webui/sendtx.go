@@ -1,17 +1,19 @@
 package webui
 
 import (
-	"fmt"
-	"bytes"
-	"strings"
-	"strconv"
-	"net/http"
 	"archive/zip"
+	"bytes"
 	"encoding/hex"
+	"fmt"
+	"io"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/piotrnar/gocoin/client/common"
+	"github.com/piotrnar/gocoin/client/usif"
 	"github.com/piotrnar/gocoin/lib/btc"
 	"github.com/piotrnar/gocoin/lib/utxo"
-	"github.com/piotrnar/gocoin/client/usif"
-	"github.com/piotrnar/gocoin/client/common"
 )
 
 
@@ -36,6 +38,7 @@ func dl_payment(w http.ResponseWriter, r *http.Request) {
 
 	var err string
 
+    // here rather than downloading the zip file, we have to send it as a json to the client server
 	if len(r.Form["outcnt"])==1 {
 		var thisbal utxo.AllUnspentTx
 		var pay_cmd string
@@ -210,8 +213,26 @@ func dl_payment(w http.ResponseWriter, r *http.Request) {
 
 
 		zi.Close()
-		w.Header()["Content-Type"] = []string{"application/zip"}
-		w.Write(buf.Bytes())
+        client := &http.Client{}
+        requestURL := fmt.Sprintf("http://localhost:%d/sign-transaction", 8090)
+        req, _ := http.NewRequest(http.MethodPost,requestURL, buf)
+        req.Header["Content-Type"] =  []string{"application/zip"}
+        req.Header["Content-Disposition"] =  []string{"attachment; filename=\"zipper.zip\""}
+        res, err := client.Do(req)
+        if err != nil {
+            fmt.Printf("error making http request: %s\n", err)
+        }
+
+        bodyBytes, err := io.ReadAll(res.Body)
+        if err != nil {
+            fmt.Printf("error parsing http response: %s\n", err)
+        }
+        bodyString := string(bodyBytes)
+        fmt.Printf("Res: %v", bodyString)
+
+		zi.Close()
+		w.Header()["Content-Type"] = []string{"text/plain"}
+		w.Write([]byte(bodyString))
 		return
 	} else {
 		err = "Bad request"

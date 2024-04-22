@@ -24,7 +24,7 @@ func NewHandler(walletFolderPath string, walletBinaryPath string) Handler {
 }
 
 func(h *Handler) ReceiveMessage(msg common.Msg, writer MessageWriter) {
-    txSignResp := common.Msg{Type: common.SignedTransactionRawHex}
+    txSignResp := common.Msg{}
     switch msg.Type {
     case common.SignTransaction:
         rawHex, err := h.SignTransaction(msg.Payload)
@@ -32,6 +32,7 @@ func(h *Handler) ReceiveMessage(msg common.Msg, writer MessageWriter) {
             fmt.Println(err)
             return
         }
+        txSignResp.Type = common.SignedTransactionRawHex
         txSignResp.Payload = rawHex
         err = writer.Write(txSignResp)
         if err != nil {

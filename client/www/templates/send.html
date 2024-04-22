@@ -309,6 +309,24 @@ function fetch_wallet_balance(name) {
 	aj.send(JSON.stringify(wallet_addr))
 }
 
+function sign_transaction() {
+    var aj = ajax()
+	aj.onerror=function(err) {
+        console.log(err)
+	}
+    let myform = document.getElementById("paymentform");
+    let fd = new FormData(myform);
+    console.log([...fd])
+    aj.onload = function() {
+        console.log(aj.responseText)
+        alert(aj.responseText)
+    }
+
+	aj.open("POST", "payment.zip", true)
+    aj.setRequestHeader("Content-Type", "application/x-www-form-urlencoded")
+    aj.send(new URLSearchParams(fd))
+}
+
 function recalc_inputs() {
 	selected_value = 0
 	selected_cnt = 0
@@ -701,7 +719,7 @@ function save_address_book() {
 
 </script>
 
-<form method="post" action="payment.zip">
+<form id="paymentform" method="post" action="payment.zip">
 <input type="hidden" id="outcnt_val" name="outcnt" value="">
 <h2>Payment details
 <input style="float:right;" id="addrbook_button" type="button" value="Edit Address Book" onclick="edit_address_book()">
@@ -788,6 +806,7 @@ Only accounting outputs with at least <b id="min_val_btc"></b> BTC</i>
 </table>
 
 </form>
+<button onclick="sign_transaction()" style="width:100%">Sign with Wallet </button>
 <script>
 
 if (typeof(localStorage.gocoinWallets)=="string") {
