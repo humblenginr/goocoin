@@ -22,6 +22,6 @@ type WalletRemoteServer interface {
     Listen() error
     // Shutdown shuts the server down cleanly depending on the protocol used.
     Shutdown(context.Context) error
-    // SetHandler sets the function to be called after receiving and parsing the message
+    // SetHandler sets the MessageHandler to be used after receiving and parsing the message
     SetHandler(MessageHandler) 
 }

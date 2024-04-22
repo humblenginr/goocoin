@@ -2,7 +2,6 @@ package common
 
 import "fmt"
 
-// This has to be in a common package
 type MsgType string
 const (
 	SignTransaction MsgType = "sign_transaction"
@@ -16,6 +15,7 @@ type Msg struct {
 
 type SignTransactionResponsePayload string
 
+// TODO: Make it so that it supports multiple balance files 
 type SignTransactionRequestPayload struct {
     PayCmd string `json:"payCmd"`
     Tx2Sign string `json:"tx2Sign"`

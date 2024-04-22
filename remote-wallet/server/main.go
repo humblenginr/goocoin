@@ -1,8 +1,13 @@
 package main
 
+var (
+    TempWalletFolderPath = "/Users/humblenginr/code/gocoin/wallet"
+    TempWalletBinaryPath = TempWalletFolderPath + "/wallet"
+)
+
 func main() {
     websocketWS := NewWSCommunicationServer()
-    handler := NewHandler("/Users/humblenginr/code/gocoin/wallet", "/Users/humblenginr/code/gocoin/wallet/wallet")
+    handler := NewHandler(TempWalletFolderPath, TempWalletBinaryPath)
     websocketWS.SetHandler(&handler)
     err := websocketWS.Listen()
     if err != nil {

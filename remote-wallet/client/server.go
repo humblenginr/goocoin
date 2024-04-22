@@ -1,22 +1,93 @@
 package main
 
 import (
-	"archive/zip"
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
+	"archive/zip"
+	"context"
+	"encoding/hex"
+	"fmt"
+	"log"
+	"strings"
+
+	common "github.com/piotrnar/gocoin/remote-wallet/common"
+	"nhooyr.io/websocket"
 )
 
-type SignTransactionReq struct {
-    PayCmd string `json:"payCmd"`
-    Tx2Sign string `json:"tx2Sign"`
-    Unspent string `json:"unspent"`
-    BalanceFileName string `json:"balanceFileName"`
-    BalanceFileContents string `json:"balanceFileContents"`
+var (
+    ClientServerPort = 8090
+    WalletRemoteServerPort = 3421
+)
+
+
+func signTransactionRequest(zipReader *zip.Reader) string {
+    // connect with the wallet remote server
+    wrc := WalletRemoteClient{}
+    wrsUrl := fmt.Sprintf("ws://localhost:%d", WalletRemoteServerPort)
+    c, err := wrc.Connect(wrsUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+    // gather required information from the zip reader
+    var balanceFileData string
+    var paycmd string
+    var tx2sign string
+    var unspent string
+    var balanceFileName string
+
+    for _, f := range zipReader.File {
+		fmt.Printf("Contents of %s:\n", f.Name)
+		rc, err := f.Open()
+		if err != nil {
+            panic(err)
+		}
+        if(f.Name == "unspent.txt") {
+            var dummy []byte
+            rc.Read(dummy)
+            unspent = string(dummy)
+        } else if(f.Name == "pay_cmd.txt"){
+            var dummy []byte
+            rc.Read(dummy)
+            paycmd = string(dummy)
+        }else if(f.Name == "tx2sign.txt"){
+            var dummy []byte
+            rc.Read(dummy)
+            tx2sign = string(dummy)
+        } else {
+            // this should be the balance file contents
+            var dummy []byte
+            rc.Read(dummy)
+            balanceFileData = hex.EncodeToString(dummy)
+            s := strings.Split(f.Name, "/")
+            balanceFileName = s[1]
+        }
+		rc.Close()
+	}
+
+    // TODO: Make it so that it supports multiple balance files 
+    payload := common.SignTransactionRequestPayload{
+        PayCmd: paycmd,
+        Tx2Sign: tx2sign,
+        Unspent: unspent,
+        BalanceFileName: balanceFileName,
+        BalanceFileContents:balanceFileData,
+    }
+    ctx := context.Background()
+    err = wrc.SendMessage(ctx, c, common.SignTransaction, payload)
+	if err != nil {
+		log.Fatal(err)
+	}
+    msg, err := wrc.ReadMessage(ctx, c)
+	if err != nil {
+		log.Fatal(err)
+	}
+    c.Close(websocket.StatusNormalClosure, "")
+    return msg.Payload.(string)
 }
 
-func sign(w http.ResponseWriter, req *http.Request) {
+func SignTransactionHandler(w http.ResponseWriter, req *http.Request) {
     w.Header().Set("Content-Type", "application/zip")
     buff := bytes.NewBuffer([]byte{})
     size, err := io.Copy(buff, req.Body)
@@ -28,13 +99,14 @@ func sign(w http.ResponseWriter, req *http.Request) {
     if err != nil {
         panic(err)
     }
-    rawHex := SignTransactionRequest(zipReader)
-    fmt.Println(rawHex)
+    rawHex := signTransactionRequest(zipReader)
     fmt.Fprintf(w, "%s\n", rawHex)
 }
 
-func startServer() {
-    http.HandleFunc("/sign-transaction", sign)
-
-    http.ListenAndServe(":8090", nil)
+// StartServer starts the proxy server that is responsible for forwarding the request from the WebUI to the WalletRemoteServer.
+func StartProxyServer() {
+    http.HandleFunc("/sign-transaction", SignTransactionHandler)
+    port := fmt.Sprintf(":%d", ClientServerPort)
+    http.ListenAndServe(port, nil)
+    fmt.Printf("Client proxy server is listening on port: %d", ClientServerPort)
 }
