@@ -1,9 +1,9 @@
 package webui
 
 import (
-	"archive/zip"
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,6 +29,14 @@ type MultisigAddr struct {
 	KeysRequired, KeysProvided uint
 	RedeemScript string
 	ListOfAddres []string
+}
+
+type SignTransactionRequestPayload struct {
+    PayCmd string `json:"payCmd"`
+    Tx2Sign string `json:"tx2Sign"`
+    Unspent string `json:"unspent"`
+    BalanceFileName string `json:"balanceFileName"`
+    BalanceFileContents string `json:"balanceFileContents"`
 }
 
 func dl_payment(w http.ResponseWriter, r *http.Request) {
@@ -179,8 +187,8 @@ func dl_payment(w http.ResponseWriter, r *http.Request) {
 			tx.TxOut = append(tx.TxOut, outs...)
 		}
 
-		buf := new(bytes.Buffer)
-		zi := zip.NewWriter(buf)
+        st := SignTransactionRequestPayload{}
+
 
 		was_tx := make(map [[32]byte] bool, len(thisbal))
 		for i := range thisbal {
@@ -189,35 +197,37 @@ func dl_payment(w http.ResponseWriter, r *http.Request) {
 			}
 			was_tx[thisbal[i].TxPrevOut.Hash] = true
 			txid := btc.NewUint256(thisbal[i].TxPrevOut.Hash[:])
-			fz, _ := zi.Create("balance/" + txid.String() + ".tx")
 			if dat, er := common.GetRawTx(thisbal[i].MinedAt, txid); er == nil {
-				fz.Write(dat)
+                st.BalanceFileName = txid.String() + ".tx"
+                st.BalanceFileContents = hex.EncodeToString(dat)
 			} else {
 				println(er.Error())
 			}
 		}
 
-		fz, _ := zi.Create("balance/unspent.txt")
+        b := bytes.NewBuffer(make([]byte, 0))
 		for i := range thisbal {
-			fmt.Fprintln(fz, thisbal[i].UnspentTextLine())
+			fmt.Fprintln(b, thisbal[i].UnspentTextLine())
 		}
+        st.Unspent = string(b.Bytes())
 
 		if pay_cmd!="" {
-			fz, _ = zi.Create(common.CFG.WebUI.PayCmdName)
-			fz.Write([]byte(pay_cmd))
+            st.PayCmd = pay_cmd
 		}
 
 		// Non-multisig transaction ...
-		fz, _ = zi.Create("tx2sign.txt")
-		fz.Write([]byte(hex.EncodeToString(tx.Serialize())))
+        st.Tx2Sign = string(tx.Serialize())
+
+        jsonValue, err := json.Marshal(st)
+        if err != nil {
+            fmt.Println(err)
+        }
 
 
-		zi.Close()
         client := &http.Client{}
         requestURL := fmt.Sprintf("http://localhost:%d/sign-transaction", 8090)
-        req, _ := http.NewRequest(http.MethodPost,requestURL, buf)
-        req.Header["Content-Type"] =  []string{"application/zip"}
-        req.Header["Content-Disposition"] =  []string{"attachment; filename=\"zipper.zip\""}
+        req, _ := http.NewRequest(http.MethodPost,requestURL, bytes.NewBuffer(jsonValue))
+        req.Header["Content-Type"] =  []string{"application/json"}
         res, err := client.Do(req)
         if err != nil {
             fmt.Printf("error making http request: %s\n", err)
@@ -230,7 +240,6 @@ func dl_payment(w http.ResponseWriter, r *http.Request) {
         bodyString := string(bodyBytes)
         fmt.Printf("Res: %v", bodyString)
 
-		zi.Close()
 		w.Header()["Content-Type"] = []string{"text/plain"}
 		w.Write([]byte(bodyString))
 		return

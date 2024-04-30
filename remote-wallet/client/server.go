@@ -1,15 +1,12 @@
 package main
 
 import (
-	"bytes"
-	"io"
-	"net/http"
-	"archive/zip"
 	"context"
-	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
-	"strings"
+	"net/http"
 
 	common "github.com/piotrnar/gocoin/remote-wallet/common"
 	"nhooyr.io/websocket"
@@ -21,7 +18,7 @@ var (
 )
 
 
-func signTransactionRequest(zipReader *zip.Reader) string {
+func signTransactionRequest(payload common.SignTransactionRequestPayload) string {
     // connect with the wallet remote server
     wrc := WalletRemoteClient{}
     wrsUrl := fmt.Sprintf("ws://localhost:%d", WalletRemoteServerPort)
@@ -30,50 +27,6 @@ func signTransactionRequest(zipReader *zip.Reader) string {
 		log.Fatal(err)
 	}
 
-    // gather required information from the zip reader
-    var balanceFileData string
-    var paycmd string
-    var tx2sign string
-    var unspent string
-    var balanceFileName string
-
-    for _, f := range zipReader.File {
-		fmt.Printf("Contents of %s:\n", f.Name)
-		rc, err := f.Open()
-		if err != nil {
-            panic(err)
-		}
-        if(f.Name == "unspent.txt") {
-            var dummy []byte
-            rc.Read(dummy)
-            unspent = string(dummy)
-        } else if(f.Name == "pay_cmd.txt"){
-            var dummy []byte
-            rc.Read(dummy)
-            paycmd = string(dummy)
-        }else if(f.Name == "tx2sign.txt"){
-            var dummy []byte
-            rc.Read(dummy)
-            tx2sign = string(dummy)
-        } else {
-            // this should be the balance file contents
-            var dummy []byte
-            rc.Read(dummy)
-            balanceFileData = hex.EncodeToString(dummy)
-            s := strings.Split(f.Name, "/")
-            balanceFileName = s[1]
-        }
-		rc.Close()
-	}
-
-    // TODO: Make it so that it supports multiple balance files 
-    payload := common.SignTransactionRequestPayload{
-        PayCmd: paycmd,
-        Tx2Sign: tx2sign,
-        Unspent: unspent,
-        BalanceFileName: balanceFileName,
-        BalanceFileContents:balanceFileData,
-    }
     ctx := context.Background()
     err = wrc.SendMessage(ctx, c, common.SignTransaction, payload)
 	if err != nil {
@@ -88,18 +41,18 @@ func signTransactionRequest(zipReader *zip.Reader) string {
 }
 
 func SignTransactionHandler(w http.ResponseWriter, req *http.Request) {
-    w.Header().Set("Content-Type", "application/zip")
-    buff := bytes.NewBuffer([]byte{})
-    size, err := io.Copy(buff, req.Body)
+    w.Header().Set("Content-Type", "application/json")
+    var payload common.SignTransactionRequestPayload
+    body, err := io.ReadAll(req.Body)
     if err != nil {
         panic(err)
     }
-    reader := bytes.NewReader(buff.Bytes())
-    zipReader, err := zip.NewReader(reader, size)
+    err = json.Unmarshal(body, &payload)
     if err != nil {
         panic(err)
     }
-    rawHex := signTransactionRequest(zipReader)
+    fmt.Println(payload)
+    rawHex := signTransactionRequest(payload)
     fmt.Fprintf(w, "%s\n", rawHex)
 }
 
