@@ -41,6 +41,7 @@ func signTransactionRequest(payload common.SignTransactionRequestPayload) string
 }
 
 func SignTransactionHandler(w http.ResponseWriter, req *http.Request) {
+    fmt.Printf("Received a request to sign transaction, forwarding it to the remote wallet server...\n")
     w.Header().Set("Content-Type", "application/json")
     var payload common.SignTransactionRequestPayload
     body, err := io.ReadAll(req.Body)
@@ -51,8 +52,8 @@ func SignTransactionHandler(w http.ResponseWriter, req *http.Request) {
     if err != nil {
         panic(err)
     }
-    fmt.Println(payload)
     rawHex := signTransactionRequest(payload)
+    fmt.Printf("Received the signed transaction raw hex from the wallet remote server: %s\n", rawHex)
     fmt.Fprintf(w, "%s\n", rawHex)
 }
 
@@ -60,6 +61,6 @@ func SignTransactionHandler(w http.ResponseWriter, req *http.Request) {
 func StartProxyServer() {
     http.HandleFunc("/sign-transaction", SignTransactionHandler)
     port := fmt.Sprintf(":%d", ClientServerPort)
+    fmt.Printf("Client proxy server is listening on port: %d\n", ClientServerPort)
     http.ListenAndServe(port, nil)
-    fmt.Printf("Client proxy server is listening on port: %d", ClientServerPort)
 }

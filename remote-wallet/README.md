@@ -25,4 +25,4 @@ The primary goal was to develop a prototype for demonstration purposes. I intent
 
 # Demo
 
-Here is a recorded demo of the prototype: https://youtu.be/__2W91lhLAo
+Here is a recorded demo of the prototype: https://www.youtube.com/watch?v=Sd2u9l2tWpA

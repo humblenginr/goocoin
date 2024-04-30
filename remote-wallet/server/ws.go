@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -93,7 +92,7 @@ func (s *WsWalletRemoteServer) ServeHTTP(w http.ResponseWriter, r *http.Request)
     for {
         var msg common.Msg
         if err := wsjson.Read(ctx, c, &msg); err != nil{
-            fmt.Println(err)
+            // fmt.Println(err)
             break
         }
         s.handler.ReceiveMessage(msg, mwriter)

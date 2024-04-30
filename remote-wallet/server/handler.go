@@ -27,6 +27,8 @@ func(h *Handler) ReceiveMessage(msg common.Msg, writer MessageWriter) {
     txSignResp := common.Msg{}
     switch msg.Type {
     case common.SignTransaction:
+        fmt.Printf("Received a request to sign transaction...\n")
+        fmt.Printf("Automatically proceeding without user confirmation...\n")
         rawHex, err := h.SignTransaction(msg.Payload)
         if err != nil {
             fmt.Println(err)
