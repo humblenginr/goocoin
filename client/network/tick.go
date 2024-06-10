@@ -2,6 +2,7 @@ package network
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -712,9 +713,11 @@ func (c *OneConnection) Run() {
 
 		if cmd == nil {
 			if c.unfinished_getdata != nil && !c.SendingPaused() {
-				cmd = &BCmsg{cmd: "getdata", pl: c.unfinished_getdata}
 				common.CountSafe("GetDataRestored")
-				goto recovered_getdata
+				tmp := c.unfinished_getdata.Bytes()
+				//println(c.ConnID, "restoring getdata for", len(tmp)/36, "invs")
+				c.unfinished_getdata = nil
+				c.processGetData(bytes.NewReader(tmp))
 			}
 
 			if !read_tried {
@@ -785,7 +788,6 @@ func (c *OneConnection) Run() {
 			continue
 		}
 
-	recovered_getdata:
 		switch cmd.cmd {
 		case "inv":
 			c.ProcessInv(cmd.pl)
@@ -806,7 +808,6 @@ func (c *OneConnection) Run() {
 			c.GetBlocks(cmd.pl)
 
 		case "getdata":
-			c.unfinished_getdata = nil
 			c.ProcessGetData(cmd.pl)
 
 		case "getaddr":
